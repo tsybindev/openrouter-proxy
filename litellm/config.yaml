@@ -1,11 +1,14 @@
 model_list:
-  # Слева — имя, которое ты будешь указывать в клиенте (model=...).
+  # Слева — имя, которое ты указываешь в клиенте (model=...).
   # Справа, в litellm_params.model — реальная модель на OpenRouter
   # (формат openrouter/<vendor>/<model>, полный список в openrouter.ai/models).
   #
   # model_info.input_cost_per_token / output_cost_per_token — задаются за 1 ТОКЕН
-  # (не за 1M). Цены ниже синхронизированы с карточками моделей на
-  # openrouter.ai (на 2026-08-28). У free-моделей — 0/0.
+  # (не за 1M). Это fallback-цены, используются ТОЛЬКО если OpenRouter не
+  # вернул cost в ответе. С use_provider_cost: true в litellm_settings ниже
+  # LiteLLM берёт реальный счёт от OpenRouter (который учитывает текущий
+  # динамический тариф) — записи model_info нужны только для Admin UI
+  # и для случаев, когда провайдер не прислал цену.
 
   - model_name: glm-5.3-flash
     litellm_params:
@@ -109,12 +112,33 @@ model_list:
       input_cost_per_token: 0
       output_cost_per_token: 0
 
+  # Wildcard-роутер: ловит любой model= который не совпал с явными записями выше,
+  # и проксирует его на openrouter/<тот же самый id>. Если такого id нет в
+  # OpenRouter — провайдер вернёт 404, LiteLLM отдаст 404 клиенту.
+  # Эта запись позволяет не прописывать каждую модель вручную.
+  # NB: для wildcard не работают provider-routing и явный прайс — цена берётся
+  # из ответа OpenRouter (use_provider_cost: true ниже).
+  - model_name: "*"
+    litellm_params:
+      model: openrouter/*
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          # Без жёсткого order — даём OpenRouter'у самому выбирать по умолчанию
+          allow_fallbacks: true
+
   # Добавляй свои модели по этому же шаблону.
   # Актуальные id моделей смотри тут: https://openrouter.ai/models
 
 litellm_settings:
   drop_params: true          # не падать, если клиент шлёт лишние/несовместимые параметры
   set_verbose: false
+  # use_provider_cost: true — для расчёта spend-логов LiteLLM использует
+  # реальный usage.cost, который вернул OpenRouter в ответе, а не свою
+  # таблицу цен. Это автоматически учитывает динамические тарифы провайдера
+  # (например, у Z.ai сейчас скидка 50% до 09.09 — OpenRouter сам это спишет
+  # правильно, без правки model_info).
+  use_provider_cost: true
 
 # Router: round-robin между всеми моделями с одинаковым model_name (для алиаса "free")
 # и fallback-цепочка: если основная модель не ответила (404/5xx/timeout),
