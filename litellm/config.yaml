@@ -115,19 +115,29 @@ model_list:
 litellm_settings:
   drop_params: true          # не падать, если клиент шлёт лишние/несовместимые параметры
   set_verbose: false
-  # Глобальные fallback'и: если основная модель не ответила (404/5xx/timeout),
-  # LiteLLM попробует следующую из списка. Это спасает когда у провайдера
-  # отвалился free-эндпоинт или модель ещё не активирована на ключе.
-  fallbacks:
-    - nemotron-3-ultra-free
-    - poolside-laguna-s2-free
-    - minimax-m3-free
 
 # Router: round-robin между всеми моделями с одинаковым model_name (для алиаса "free")
+# и fallback-цепочка: если основная модель не ответила (404/5xx/timeout),
+# LiteLLM попробует следующую из списка. Это спасает когда у провайдера
+# отвалился free-эндпоинт или модель ещё не активирована на ключе.
 router_settings:
   num_retries: 2
   timeout: 60
   routing_strategy: simple-shuffle
+  fallbacks:
+    # nemotron-3-ultra-free часто отдаёт 404 "function not found" на провайдере
+    # nvidia, если провайдер не активирован на ключе — падать на нём нельзя,
+    # прокидываем запрос на poolside/minimax.
+    - model_name: nemotron-3-ultra-free
+      fallbacks:
+        - model_name: poolside-laguna-s2-free
+        - model_name: minimax-m3-free
+    # Алиас "free" тоже: если все три варианта в нём упали, пробуем платные как последний шанс.
+    - model_name: free
+      fallbacks:
+        - model_name: poolside-laguna-s2-free
+        - model_name: minimax-m3-free
+        - model_name: glm-5.3-flash
 
 general_settings:
   # Единый мастер-токен: это и админ-ключ, и пароль входа в Admin UI (/ui).
