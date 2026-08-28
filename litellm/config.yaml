@@ -1,0 +1,65 @@
+model_list:
+  # Слева — имя, которое ты будешь указывать в клиенте (model=...).
+  # Справа, в litellm_params.model — реальная модель на OpenRouter
+  # (формат openrouter/<vendor>/<model>, полный список в openrouter.ai/models).
+
+  - model_name: glm-5.3-flash
+    litellm_params:
+      model: openrouter/z-ai/glm-5.3-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+      # В карточке модели на OpenRouter указан провайдер z-ai, квантование fp8
+      extra_body:
+        provider:
+          order: ["z-ai"]
+          quantizations: ["fp8"]
+          allow_fallbacks: true
+
+  - model_name: deepseek-v4-flash-vision
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash-vision-exp
+      api_key: os.environ/OPENROUTER_API_KEY
+      # Провайдер по карточке — deepseek
+      extra_body:
+        provider:
+          order: ["deepseek"]
+          allow_fallbacks: true
+
+  - model_name: nemotron-3-ultra-free
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      # Бесплатная модель, провайдер один — nvidia. allow_fallbacks: true
+      # на случай временной недоступности конкретного бэкенда у провайдера.
+      extra_body:
+        provider:
+          order: ["nvidia"]
+          allow_fallbacks: true
+
+  - model_name: poolside-laguna-s2-free
+    litellm_params:
+      model: openrouter/poolside/laguna-s-2.1:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      # В карточке указан poolside/fp4 — пиним провайдера, allow_fallbacks: true
+      extra_body:
+        provider:
+          order: ["poolside"]
+          quantizations: ["fp4"]
+          allow_fallbacks: true
+
+  # Добавляй свои модели по этому же шаблону.
+  # Актуальные id моделей смотри тут: https://openrouter.ai/models
+
+litellm_settings:
+  drop_params: true          # не падать, если клиент шлёт лишние/несовместимые параметры
+  set_verbose: false
+
+general_settings:
+  # Единый мастер-токен: это и админ-ключ, и пароль входа в Admin UI (/ui).
+  # Клиенты, которым нужен именно общий доступ, шлют:
+  # Authorization: Bearer <LITELLM_MASTER_KEY>
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+  # store_model_in_db: true (задаётся также через ENV STORE_MODEL_IN_DB=True
+  # в docker-compose.yml) — включает Admin UI и позволяет добавлять/менять
+  # модели через веб-интерфейс, а не только через этот файл.
+  store_model_in_db: true
