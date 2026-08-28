@@ -33,6 +33,10 @@ services:
       # собираем DATABASE_URL из POSTGRES_* переменных в .env
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       STORE_MODEL_IN_DB: "True"
+      # Прячем баннер "No Redis configured" — у нас 1 worker, Redis не нужен.
+      # Если в будущем поднимем несколько реплик LiteLLM — убрать эту строку
+      # и добавить redis-сервис в стек.
+      LITELLM_DISABLE_NO_REDIS_WARNING: "true"
     volumes:
       - ./litellm/config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000"]
