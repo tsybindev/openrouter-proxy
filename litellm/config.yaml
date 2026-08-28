@@ -79,14 +79,19 @@ model_list:
   # Алиас "free" — список бесплатных моделей с round-robin балансировкой
   # (аналог openrouter/free, но без сюрпризов с их внутренним роутером).
   # Клиент шлёт model=free, LiteLLM случайно выбирает одну из ниже.
+  # nemotron-3-ultra-free убран из ротации: провайдер nvidia на бесплатном
+  # OpenRouter-ключе часто отдаёт 404 "function not found" — привязка
+  # провайдера требует opt-in в OpenRouter. Модель оставлена отдельной записью
+  # выше, чтобы её можно было дёрнуть напрямую после активации провайдера.
   - model_name: free
     litellm_params:
-      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      model: openrouter/minimax/minimax-m3:free
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
-          order: ["nvidia"]
-          allow_fallbacks: true
+          order: ["gmicloud"]
+          quantizations: ["fp8"]
+          allow_fallbacks: false
     model_info:
       input_cost_per_token: 0
       output_cost_per_token: 0
@@ -104,25 +109,19 @@ model_list:
       input_cost_per_token: 0
       output_cost_per_token: 0
 
-  - model_name: free
-    litellm_params:
-      model: openrouter/minimax/minimax-m3:free
-      api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          order: ["gmicloud"]
-          quantizations: ["fp8"]
-          allow_fallbacks: false
-    model_info:
-      input_cost_per_token: 0
-      output_cost_per_token: 0
-
   # Добавляй свои модели по этому же шаблону.
   # Актуальные id моделей смотри тут: https://openrouter.ai/models
 
 litellm_settings:
   drop_params: true          # не падать, если клиент шлёт лишние/несовместимые параметры
   set_verbose: false
+  # Глобальные fallback'и: если основная модель не ответила (404/5xx/timeout),
+  # LiteLLM попробует следующую из списка. Это спасает когда у провайдера
+  # отвалился free-эндпоинт или модель ещё не активирована на ключе.
+  fallbacks:
+    - nemotron-3-ultra-free
+    - poolside-laguna-s2-free
+    - minimax-m3-free
 
 # Router: round-robin между всеми моделями с одинаковым model_name (для алиаса "free")
 router_settings:
