@@ -2,49 +2,120 @@ model_list:
   # Слева — имя, которое ты будешь указывать в клиенте (model=...).
   # Справа, в litellm_params.model — реальная модель на OpenRouter
   # (формат openrouter/<vendor>/<model>, полный список в openrouter.ai/models).
+  #
+  # model_info.input_cost_per_token / output_cost_per_token — задаются за 1 ТОКЕН
+  # (не за 1M). Цены ниже синхронизированы с карточками моделей на
+  # openrouter.ai (на 2026-08-28). У free-моделей — 0/0.
 
   - model_name: glm-5.3-flash
     litellm_params:
       model: openrouter/z-ai/glm-5.3-flash
       api_key: os.environ/OPENROUTER_API_KEY
-      # В карточке модели на OpenRouter указан провайдер z-ai, квантование fp8
+      # В карточке модели указан провайдер z-ai, квантование fp8.
+      # До 09.09.2026 у Z.ai скидка 50% (0.075/0.25), потом вернётся к 0.15/0.50.
       extra_body:
         provider:
           order: ["z-ai"]
           quantizations: ["fp8"]
           allow_fallbacks: true
+    model_info:
+      input_cost_per_token: 0.000000075
+      output_cost_per_token: 0.00000025
 
   - model_name: deepseek-v4-flash-vision
     litellm_params:
       model: openrouter/deepseek/deepseek-v4-flash-vision-exp
       api_key: os.environ/OPENROUTER_API_KEY
-      # Провайдер по карточке — deepseek
+      # Провайдер по карточке один — deepseek (только он и хостит)
       extra_body:
         provider:
           order: ["deepseek"]
           allow_fallbacks: true
+    model_info:
+      input_cost_per_token: 0.00000022
+      output_cost_per_token: 0.00000066
 
   - model_name: nemotron-3-ultra-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       api_key: os.environ/OPENROUTER_API_KEY
-      # Бесплатная модель, провайдер один — nvidia. allow_fallbacks: true
-      # на случай временной недоступности конкретного бэкенда у провайдера.
+      # Бесплатная модель. У OpenRouter провайдер — nvidia
       extra_body:
         provider:
           order: ["nvidia"]
           allow_fallbacks: true
+    model_info:
+      input_cost_per_token: 0
+      output_cost_per_token: 0
 
   - model_name: poolside-laguna-s2-free
     litellm_params:
       model: openrouter/poolside/laguna-s-2.1:free
       api_key: os.environ/OPENROUTER_API_KEY
-      # В карточке указан poolside/fp4 — пиним провайдера, allow_fallbacks: true
+      # В карточке провайдер poolside, квантование fp4
       extra_body:
         provider:
           order: ["poolside"]
           quantizations: ["fp4"]
           allow_fallbacks: true
+    model_info:
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
+  - model_name: minimax-m3-free
+    litellm_params:
+      model: openrouter/minimax/minimax-m3:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      # Free-вариант MiniMax M3, провайдер только GMICloud
+      extra_body:
+        provider:
+          order: ["gmicloud"]
+          quantizations: ["fp8"]
+          allow_fallbacks: false
+    model_info:
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
+  # Алиас "free" — список бесплатных моделей с round-robin балансировкой
+  # (аналог openrouter/free, но без сюрпризов с их внутренним роутером).
+  # Клиент шлёт model=free, LiteLLM случайно выбирает одну из ниже.
+  - model_name: free
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          order: ["nvidia"]
+          allow_fallbacks: true
+    model_info:
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
+  - model_name: free
+    litellm_params:
+      model: openrouter/poolside/laguna-s-2.1:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          order: ["poolside"]
+          quantizations: ["fp4"]
+          allow_fallbacks: true
+    model_info:
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
+  - model_name: free
+    litellm_params:
+      model: openrouter/minimax/minimax-m3:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          order: ["gmicloud"]
+          quantizations: ["fp8"]
+          allow_fallbacks: false
+    model_info:
+      input_cost_per_token: 0
+      output_cost_per_token: 0
 
   # Добавляй свои модели по этому же шаблону.
   # Актуальные id моделей смотри тут: https://openrouter.ai/models
@@ -52,6 +123,12 @@ model_list:
 litellm_settings:
   drop_params: true          # не падать, если клиент шлёт лишние/несовместимые параметры
   set_verbose: false
+
+# Router: round-robin между всеми моделями с одинаковым model_name (для алиаса "free")
+router_settings:
+  num_retries: 2
+  timeout: 60
+  routing_strategy: simple-shuffle
 
 general_settings:
   # Единый мастер-токен: это и админ-ключ, и пароль входа в Admin UI (/ui).
