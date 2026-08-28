@@ -139,6 +139,22 @@ litellm_settings:
   # (например, у Z.ai сейчас скидка 50% до 09.09 — OpenRouter сам это спишет
   # правильно, без правки model_info).
   use_provider_cost: true
+  # Политика ретраев: какие ошибки триггерят повторную отправку.
+  # BadRequestError (400) ретраить НЕЛЬЗЯ — это ошибки клиента, повтор не поможет.
+  # Timeout и 5xx — ретраим, это обычно upstream-провайдер завис.
+  retry_policy:
+    BadRequestError:        false
+    AuthenticationError:    false
+    Timeout:                true
+    RateLimitError:         true
+    InternalServerError:    true
+    ServiceUnavailableError: true
+  # Сколько раз ретраить одну и ту же модель (до перехода на fallback).
+  num_retries: 3
+  # Таймаут ожидания ответа от одной модели. 180s — для free-провайдеров
+  # и reasoning-моделей (deepseek-r1, nemotron) этого хватает; дефолт 60s
+  # слишком жёсткий.
+  request_timeout: 180
 
 # Router: round-robin между всеми моделями с одинаковым model_name (для алиаса "free")
 # и fallback-цепочка: если основная модель не ответила (404/5xx/timeout),
@@ -146,16 +162,26 @@ litellm_settings:
 # отвалился free-эндпоинт или модель ещё не активирована на ключе.
 router_settings:
   num_retries: 2
-  timeout: 60
+  timeout: 180
   routing_strategy: simple-shuffle
   fallbacks:
     # LiteLLM требует формат: ключ — имя модели, значение — список fallback-моделей.
-    # nemotron-3-ultra-free часто отдаёт 404 "function not found" на провайдере
-    # nvidia, если провайдер не активирован на ключе — падать на нём нельзя,
-    # прокидываем запрос на poolside/minimax.
-    - nemotron-3-ultra-free: ["poolside-laguna-s2-free", "minimax-m3-free"]
+    # nemotron-3-ultra-free часто отдаёт 404/504/timeout на провайдере nvidia —
+    # падать на нём нельзя, прокидываем запрос на poolside/minimax/glm.
+    - nemotron-3-ultra-free:
+        - poolside-laguna-s2-free
+        - minimax-m3-free
+        - glm-5.3-flash
     # Алиас "free": если все бесплатные варианты упали, пробуем платную glm как последний шанс.
-    - free: ["poolside-laguna-s2-free", "minimax-m3-free", "glm-5.3-flash"]
+    - free:
+        - poolside-laguna-s2-free
+        - minimax-m3-free
+        - glm-5.3-flash
+    # deepseek-v4-flash-vision: если провайдер deepseek завис (бывает), падать
+    # на бесплатный poolside нельзя по тематике, но как последний шанс — ок.
+    - deepseek-v4-flash-vision:
+        - glm-5.3-flash
+        - minimax-m3-free
 
 general_settings:
   # Единый мастер-токен: это и админ-ключ, и пароль входа в Admin UI (/ui).
