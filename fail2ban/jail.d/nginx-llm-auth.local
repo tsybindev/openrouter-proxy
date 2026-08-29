@@ -8,5 +8,7 @@ findtime = 600
 bantime  = 3600
 # Пропускаем собственные запросы (если curl/тестируешь с localhost)
 ignoreip = 127.0.0.1/8 ::1
-# Действие по умолчанию: route (нужен ufw). Если ufw не активен — замени на iptables-multiport.
-action   = %(action_ufw)s
+# iptables-allports банит весь трафик с IP на все порты — самый простой
+# и надёжный вариант в контейнерной среде. Если предпочитаешь ufw —
+# замени action на: ufw[name=nginx-llm-auth, port=all, protocol=all]
+action   = iptables-allports
