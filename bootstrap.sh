@@ -87,15 +87,16 @@ echo "=== fail2ban ==="
 if ! command -v fail2ban-client >/dev/null 2>&1; then
   apt-get install -y -qq fail2ban
 fi
-# Копируем наш кастомный фильтр и jail
+# Копируем наш кастомный фильтр и jail.
+# ВАЖНО: путь в jail.local — фиксированный /root/openrouter-proxy.
+# Если ты переносишь стек в другую директорию — поправь в
+# fail2ban/jail.d/nginx-llm-auth.local строку logpath.
 cp "$INSTALL_DIR/fail2ban/filter.d/nginx-llm-auth.conf" /etc/fail2ban/filter.d/
 cp "$INSTALL_DIR/fail2ban/jail.d/nginx-llm-auth.local" /etc/fail2ban/jail.d/
-# Путь к access.log в jail'е — заменяем на актуальный INSTALL_DIR
-sed -i "s|/root/openrouter-proxy|$INSTALL_DIR|g" /etc/fail2ban/jail.d/nginx-llm-auth.local
 systemctl enable fail2ban
 systemctl restart fail2ban
 sleep 2
-fail2ban-client status nginx-llm-auth 2>&1 | head -5 || echo "(jail ещё не подцепился, проверим позже)"
+fail2ban-client status nginx-llm-auth 2>&1 | head -10 || echo "(jail ещё не подцепился, проверим позже)"
 
 # ─── 5. Swap, если RAM мало ──────────────────────────────────────────────────
 echo ""

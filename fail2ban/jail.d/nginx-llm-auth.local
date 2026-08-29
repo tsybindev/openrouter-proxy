@@ -1,15 +1,20 @@
 [nginx-llm-auth]
 enabled  = true
 filter   = nginx-llm-auth
+# backend=polling читает access.log напрямую через stat().
+# Дефолтный backend=auto в Ubuntu 24.04 упорно выбирает systemd, который
+# смотрит в journal и не видит смонтированный из docker-контейнера файл.
 backend  = polling
 logpath  = /root/openrouter-proxy/nginx/logs/access.log
-# 10 неудачных попыток за 10 минут — бан на 1 час
+# 10 неудачных попыток за 10 минут — бан на сутки
 maxretry = 10
 findtime = 600
-bantime  = 3600
-# Пропускаем собственные запросы (если curl/тестируешь с localhost)
+bantime  = 86400
+# ignoreself=false: дефолтно fail2ban игнорирует IP самого сервера.
+# Но если бот начнёт долбить с твоего собственного IP (или curl-тест с
+# сервера сгенерит 401), мы всё равно хотим считать. Localhost 127.0.0.1/8
+# оставляем в ignoreip — это реально локальный трафик, банить не надо.
 ignoreip = 127.0.0.1/8 ::1
-# iptables-allports банит весь трафик с IP на все порты — самый простой
-# и надёжный вариант в контейнерной среде. Если предпочитаешь ufw —
-# замени action на: ufw[name=nginx-llm-auth, port=all, protocol=all]
+ignoreself = false
+# iptables-allports банит весь трафик с IP на все порты.
 action   = iptables-allports
