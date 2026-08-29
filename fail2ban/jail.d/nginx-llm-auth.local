@@ -1,6 +1,7 @@
 [nginx-llm-auth]
 enabled  = true
 filter   = nginx-llm-auth
+backend  = polling
 logpath  = /root/openrouter-proxy/nginx/logs/access.log
 # 10 неудачных попыток за 10 минут — бан на 1 час
 maxretry = 10
