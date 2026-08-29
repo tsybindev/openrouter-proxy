@@ -1,0 +1,12 @@
+[nginx-llm-auth]
+enabled  = true
+filter   = nginx-llm-auth
+logpath  = /root/openrouter-proxy/nginx/logs/access.log
+# 10 неудачных попыток за 10 минут — бан на 1 час
+maxretry = 10
+findtime = 600
+bantime  = 3600
+# Пропускаем собственные запросы (если curl/тестируешь с localhost)
+ignoreip = 127.0.0.1/8 ::1
+# Действие по умолчанию: route (нужен ufw). Если ufw не активен — замени на iptables-multiport.
+action   = %(action_ufw)s
